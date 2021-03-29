@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -98,6 +99,7 @@ public class EmbeddedKafkaBroker {
 
     public static final int DEFAULT_ZK_SESSION_TIMEOUT = 6000;
 
+    private final Path kafkaDir;
     private final int count;
 
     private final boolean controlledShutdown;
@@ -108,9 +110,12 @@ public class EmbeddedKafkaBroker {
 
     private final List<KafkaServer> kafkaServers = new ArrayList<>();
 
+
     private final Map<String, Object> brokerProperties = new HashMap<>();
 
     private EmbeddedZookeeper zookeeper;
+
+    private final Map<String, Object> zkProperties = new HashMap<>();
 
     private String zkConnect;
 
@@ -129,7 +134,7 @@ public class EmbeddedKafkaBroker {
     private volatile ZooKeeperClient zooKeeperClient;
 
     public EmbeddedKafkaBroker(int count) {
-        this(count, false);
+        this(null, count, false);
     }
 
     /**
@@ -138,8 +143,8 @@ public class EmbeddedKafkaBroker {
      * @param controlledShutdown passed into TestUtils.createBrokerConfig.
      * @param topics the topics to create (2 partitions per).
      */
-    public EmbeddedKafkaBroker(int count, boolean controlledShutdown, String... topics) {
-        this(count, controlledShutdown, 2, topics);
+    public EmbeddedKafkaBroker(Path kafkaDir, int count, boolean controlledShutdown, String... topics) {
+        this(kafkaDir, count, controlledShutdown, 2, topics);
     }
 
     /**
@@ -149,7 +154,8 @@ public class EmbeddedKafkaBroker {
      * @param partitions partitions per topic.
      * @param topics the topics to create.
      */
-    public EmbeddedKafkaBroker(int count, boolean controlledShutdown, int partitions, String... topics) {
+    public EmbeddedKafkaBroker(Path kafkaDir, int count, boolean controlledShutdown, int partitions, String... topics) {
+        this.kafkaDir = kafkaDir;
         this.count = count;
         this.kafkaPorts = new int[this.count]; // random ports by default.
         this.controlledShutdown = controlledShutdown;
@@ -181,6 +187,28 @@ public class EmbeddedKafkaBroker {
      * @return the {@link EmbeddedKafkaBroker}.
      */
     public EmbeddedKafkaBroker brokerProperty(String property, Object value) {
+        this.brokerProperties.put(property, value);
+        return this;
+    }
+
+    /**
+     * Specify the properties to configure Zookeeper before start
+     * @param properties the properties to use for configuring Zookeeper.
+     * @return this for chaining configuration.
+     */
+    public EmbeddedKafkaBroker zkProperties(Map<String, String> properties) {
+        this.zkProperties.putAll(properties);
+        return this;
+    }
+
+
+    /**
+     * Specify a broker property.
+     * @param property the property name.
+     * @param value the value.
+     * @return the {@link EmbeddedKafkaBroker}.
+     */
+    public EmbeddedKafkaBroker zkProperty(String property, Object value) {
         this.brokerProperties.put(property, value);
         return this;
     }
@@ -342,13 +370,26 @@ public class EmbeddedKafkaBroker {
     }
 
     private Properties createBrokerProperties(int i) {
-        return TestUtils.createBrokerConfig(i, this.zkConnect, this.controlledShutdown,
+        Properties properties = TestUtils.createBrokerConfig(i, this.zkConnect, this.controlledShutdown,
                 true, this.kafkaPorts[i],
                 scala.Option.apply(null),
                 scala.Option.apply(null),
                 scala.Option.apply(null),
                 true, false, 0, false, 0, false, 0, scala.Option.apply(null), 1, false,
                 this.partitionsPerTopic, (short) this.count);
+
+        if (!properties.containsKey("log.dir")) {
+            Assert.notNull(kafkaDir, "You need to either specify the 'log.dir' property or pass in kafkaDir to the constructor");
+        }
+        if (!properties.containsKey("num.partitions")) {
+            logger.info("num.partitions not set, defaulting to 1");
+            properties.put("num.partitions", 1);
+        }
+        if (!properties.containsKey("offsets.partitions")) {
+            logger.info("offsets.partitions not set, defaulting to 5");
+            properties.put("offsets.partitions", 5);
+        }
+        return properties;
     }
 
     /**

@@ -2,12 +2,10 @@ package org.wildfly.extras.kafka.embedded;
 
 import java.util.function.Supplier;
 
-import sun.jvm.hotspot.utilities.AssertionFailure;
-
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class Assert {
+class Assert {
     public static void isTrue(boolean expression, String message) {
         if (!expression) {
             throw new AssertionError(message);
@@ -33,7 +31,7 @@ public class Assert {
 
     public static void hasText(String expression, String message) {
         if (expression == null || expression.trim().length() == 0) {
-            throw new AssertionFailure(message);
+            throw new AssertionError(message);
         }
     }
 }
