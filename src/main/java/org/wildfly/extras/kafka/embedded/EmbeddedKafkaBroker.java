@@ -30,8 +30,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
@@ -46,6 +44,7 @@ import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.common.utils.Utils;
 import org.apache.zookeeper.server.NIOServerCnxnFactory;
 import org.apache.zookeeper.server.ZooKeeperServer;
+import org.jboss.logging.Logger;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.retry.policy.SimpleRetryPolicy;
 import org.springframework.retry.support.RetryTemplate;
@@ -79,7 +78,7 @@ public class EmbeddedKafkaBroker {
 
     private static final String LOOPBACK = "127.0.0.1";
 
-    private static final Log logger = LogFactory.getLog(EmbeddedKafkaBroker.class); // NOSONAR
+    private static final Logger logger = Logger.getLogger(EmbeddedKafkaBroker.class); // NOSONAR
 
     public static final String BEAN_NAME = "embeddedKafka";
 
@@ -353,18 +352,18 @@ public class EmbeddedKafkaBroker {
         String exitMsg = "Exit.%s(%d, %s) called";
         Exit.setExitProcedure((statusCode, message) -> {
             if (logger.isDebugEnabled()) {
-                logger.debug(String.format(exitMsg, "exit", statusCode, message), new RuntimeException());
+                logger.debugf(new RuntimeException(), exitMsg, "exit", statusCode, message);
             }
             else {
-                logger.warn(String.format(exitMsg, "exit", statusCode, message));
+                logger.warnf(exitMsg, "exit", statusCode, message);
             }
         });
         Exit.setHaltProcedure((statusCode, message) -> {
             if (logger.isDebugEnabled()) {
-                logger.debug(String.format(exitMsg, "halt", statusCode, message), new RuntimeException());
+                logger.debugf(new RuntimeException(), exitMsg, "halt", statusCode, message);
             }
             else {
-                logger.warn(String.format(exitMsg, "halt", statusCode, message));
+                logger.warnf(exitMsg, "halt", statusCode, message);
             }
         });
     }
@@ -545,7 +544,9 @@ public class EmbeddedKafkaBroker {
     }
 
     public void stop() {
-        System.getProperties().remove(brokerListProperty);
+        if (brokerListProperty != null) {
+            System.getProperties().remove(brokerListProperty);
+        }
         System.getProperties().remove(SPRING_EMBEDDED_ZOOKEEPER_CONNECT);
         for (KafkaServer kafkaServer : this.kafkaServers) {
             try {
@@ -710,7 +711,7 @@ public class EmbeddedKafkaBroker {
             public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
                 assigned.set(true);
                 if (logger.isDebugEnabled()) {
-                    logger.debug("partitions assigned: " + partitions);
+                    logger.debugf("partitions assigned: %s", partitions);
                 }
 
             }

@@ -9,6 +9,8 @@ import java.nio.file.Paths;
  */
 public class Main {
     public static void main(String[] args) throws Exception {
+        // Set the log manager before we set anything else up
+        System.setProperty("java.util.logging.manager", "org.jboss.logmanager.LogManager");
 
         Path path = Paths.get(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
         while (!path.getFileName().toString().equals("target")) {
